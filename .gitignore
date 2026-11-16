@@ -1,0 +1,12 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
+# AWS credentials
+.aws/
+*.pem
+
+# macOS
+.DS_Store
