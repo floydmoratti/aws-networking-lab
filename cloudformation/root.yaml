@@ -1,0 +1,3 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Networking infrastructure for the AWS Networking Lab
+

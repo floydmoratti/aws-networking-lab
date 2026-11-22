@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Security groups for the AWS Networking Lab
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: networking-lab
+    Description: Name used to identify project resources
+
+Resources:
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow inbound HTTP traffic
+      GroupName: !Sub '${EnvironmentName}-web-sg'
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCId'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-web-sg'
+  
+Outputs:
+  SecurityGroupId:
+    Description: ID of the web server security group
+    Value: !Ref WebServerSecurityGroup
+    Export:
+      Name: !Sub '${EnvironmentName}-SecurityGroupId'
