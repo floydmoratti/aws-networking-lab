@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Compute resources for the AWS Networking Lab
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: networking-lab
+    Description: Name used to identify project resources
+
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+  
+  UbuntuAMI:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: Latest Ubuntu 22.04 LTS AMI
+
+
+Resources:
+  Webserver:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuAMI
+      InstanceType: !Ref InstanceType
+      SubnetId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-SubnetId'
+      SecurityGroupIds:
+        - Fn::ImportValue: !Sub '${EnvironmentName}-SecurityGroupId'
+      IamInstanceProfile:
+        Fn::ImportValue: !Sub '${EnvironmentName}-InstanceProfileName'
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+
+          apt-get update -y
+          apt-get install -y apache2
+          systemctl enable apache2
+          systemctl start apache2
+
+          cat <<'EOF' > /var/www/html/index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>AWS Networking Lab</title>
+          </head>
+          <body>
+            <h1>AWS Networking Lab</h1>
+            <p>Apache is running successfully!</p>
+            <p>EC2 instance: ${EnvironmentName}</p>
+          </body>
+          </html>
+          EOF
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-web-server'
+
+
+Outputs:
+  InstanceId:
+    Description: EC2 instance ID
+    Value: !Ref Webserver
+  
+  PublicIp:
+    Description: Public IPv4 address
+    Value: !GetAtt Webserver.PublicIp
+  
+  PublicDnsName:
+    Description: Public DNS name
+    Value: !GetAtt Webserver.PublicDnsName
+
+
+

@@ -1,11 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Security groups for the AWS Networking Lab
+Description: Security groups and IAM resources for the AWS Networking Lab
 
 Parameters:
   EnvironmentName:
     Type: String
     Default: networking-lab
     Description: Name used to identify project resources
+
 
 Resources:
   WebServerSecurityGroup:
@@ -23,10 +24,45 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub '${EnvironmentName}-web-sg'
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-ec2-role'
+      Description: Allows EC2 instances to use AWS Systems Manager
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
   
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${EnvironmentName}-ec2-profile'
+      Roles:
+        - !Ref EC2Role
+  
+
 Outputs:
   SecurityGroupId:
     Description: ID of the web server security group
     Value: !Ref WebServerSecurityGroup
     Export:
       Name: !Sub '${EnvironmentName}-SecurityGroupId'
+
+  InstanceProfileName:
+    Description: Name of the EC2 instance profile
+    Value: !Ref EC2InstanceProfile
+    Export:
+      Name: !Sub '${EnvironmentName}-InstanceProfileName'
+  
+  RoleArn:
+    Description: ARN of the EC2 IAM role
+    Value: !GetAtt EC2Role.Arn
+    Export:
+      Name: !Sub '${EnvironmentName}-EC2RoleArn'
