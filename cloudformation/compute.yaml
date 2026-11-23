@@ -16,6 +16,10 @@ Parameters:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
     Description: Latest Ubuntu 22.04 LTS AMI
+  
+  CertificateArn:
+    Type: String
+    Description: ARN of the issued ACM certificate for the domain
 
 
 Resources:
@@ -25,9 +29,9 @@ Resources:
       ImageId: !Ref UbuntuAMI
       InstanceType: !Ref InstanceType
       SubnetId:
-        Fn::ImportValue: !Sub '${EnvironmentName}-SubnetId'
+        Fn::ImportValue: !Sub '${EnvironmentName}-PrivateSubnetAId'
       SecurityGroupIds:
-        - Fn::ImportValue: !Sub '${EnvironmentName}-SecurityGroupId'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-WebServerSecurityGroupId'
       IamInstanceProfile:
         Fn::ImportValue: !Sub '${EnvironmentName}-InstanceProfileName'
       MetadataOptions:
@@ -67,19 +71,91 @@ Resources:
         - Key: Name
           Value: !Sub '${EnvironmentName}-web-server'
 
+  # Application Load Balancer
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub '${EnvironmentName}-alb'
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      Subnets:
+        - Fn::ImportValue: !Sub '${EnvironmentName)-PublicSubnetAId'
+        - Fn::ImportValue: !Sub '${EnvironmentName)-PublicSubnetBId'
+      SecurityGroups:
+        - Fn::ImportValue: !Sub '${EnvironmentName}-ALBSecurityGroupId'
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-alb'
+  
+  # ALB Target Group
+  WebserverTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub '${EnvironmentName}-web-tg'
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCId'
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      Targets:
+        - Id: !Ref Webserver
+          Port: 80
+      HealthCheckEnabled: true
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: '200'
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-web-tg'
+  
+  # HTTP Listener
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: '443'
+            StatusCode: HTTP_301
+
+  HTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref CertificateArn
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref WebserverTargetGroup
+
 
 Outputs:
-  InstanceId:
-    Description: EC2 instance ID
+  WebserverInstanceId:
+    Description: Webserver EC2 instance ID
     Value: !Ref Webserver
   
-  PublicIp:
-    Description: Public IPv4 address
-    Value: !GetAtt Webserver.PublicIp
+  ALBDNSName:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub '${EnvironmentName}-ALBDNSName'
   
-  PublicDnsName:
-    Description: Public DNS name
-    Value: !GetAtt Webserver.PublicDnsName
-
-
-
+  ALBHostedZoneId:
+    Description: Canonical hosted zone ID of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.CanonicalHostedZoneID
+    Export:
+      Name: !Sub '${EnvironmentName}-ALBHostedZoneId'
+  
+  ALBArn:
+    Description: ARN of the Application Load Balancer
+    Value: !Ref ApplicationLoadBalancer
+    Export:
+      Name: !Sub '${EnvironmentName}-ALBArn'

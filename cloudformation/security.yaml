@@ -9,11 +9,12 @@ Parameters:
 
 
 Resources:
-  WebServerSecurityGroup:
+  # ALB Security Group
+  ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Allow inbound HTTP traffic
-      GroupName: !Sub '${EnvironmentName}-web-sg'
+      GroupDescription: Allow public HTTP and HTTPS traffic to the ALB
+      GroupName: !Sub '${EnvironmentName}-alb-sg'
       VpcId:
         Fn::ImportValue: !Sub '${EnvironmentName}-VPCId'
       SecurityGroupIngress:
@@ -21,6 +22,27 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-alb-sg'
+
+  # EC2 Security Group
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP traffic from the ALB only
+      GroupName: !Sub '${EnvironmentName}-web-sg'
+      VpcId:
+        Fn::ImportValue: !Sub '${EnvironmentName}-VPCId'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
       Tags:
         - Key: Name
           Value: !Sub '${EnvironmentName}-web-sg'
@@ -49,11 +71,17 @@ Resources:
   
 
 Outputs:
-  SecurityGroupId:
+  ALBSecurityGroupId:
+    Description: ID of the ALB security group
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: !Sub '${EnvironmentName}-ALBSecurityGroupId'
+
+  WebServerSecurityGroupId:
     Description: ID of the web server security group
     Value: !Ref WebServerSecurityGroup
     Export:
-      Name: !Sub '${EnvironmentName}-SecurityGroupId'
+      Name: !Sub '${EnvironmentName}-WebServerSecurityGroupId'
 
   InstanceProfileName:
     Description: Name of the EC2 instance profile

@@ -1,5 +1,5 @@
 PROFILE = aws-dev
-REGION = ap-southeast-2
+REGION = us-east-1
 
 .PHONY: login validate deploy status delete list-stacks outputs ssm
 
@@ -13,7 +13,8 @@ validate:
 	aws cloudformation validate-template \
 		--template-body file://cloudformation/$(STACK).yaml \
 		--profile $(PROFILE) \
-		--region $(REGION)
+		--region $(REGION) \
+		--no-cli-pager
 
 deploy:
 	aws cloudformation deploy \
@@ -21,7 +22,8 @@ deploy:
 		--stack-name networking-lab-$(STACK) \
 		--capabilities CAPABILITY_NAMED_IAM \
 		--profile $(PROFILE) \
-		--region $(REGION)
+		--region $(REGION) \
+		--parameter-overrides EnableNatGateway=$(NAT)
 
 status:
 	aws cloudformation describe-stacks \

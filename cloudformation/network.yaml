@@ -1,0 +1,241 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Networking infrastructure for the AWS Networking Lab
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: networking-lab
+    Description: Name used to identify project resources
+    
+  EnableNatGateway:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Enable or disable the NAT Gateway
+
+
+Conditions:
+  CreateNatGateway: !Equals
+    - !Ref EnableNatGateway
+    - 'true'
+
+
+Resources:
+  # VPC
+  LabVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+        CidrBlock: 10.0.0.0/16
+        EnableDnsSupport: true
+        EnableDnsHostnames: true
+        Tags:
+            - Key: Name
+              Value: !Sub '${EnvironmentName}-vpc'
+  
+  # Public Subnets
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-public-subnet-a'
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-public-subnet-b'
+
+  # Private Subnets
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC
+      CidrBlock: 10.0.11.0/24
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-private-subnet-a'
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref LabVPC
+      CidrBlock: 10.0.12.0/24
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-private-subnet-b'
+  
+  # Internet Gateway
+  LabInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-igw'
+  
+  LabInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref LabVPC
+      InternetGatewayId: !Ref LabInternetGateway
+
+  # Public Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-public-rt'
+  
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: LabInternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref LabInternetGateway
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref LabVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-private-rt'
+  
+  PrivateDefaultRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateNatGateway
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnetB
+      RouteTableId: !Ref PrivateRouteTable
+  
+  # NAT Gateway Elastic IP
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Condition: CreateNatGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-nat-eip'
+  
+  # NAT Gateway
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Condition: CreateNatGateway
+    DependsOn:
+      - PublicDefaultRoute
+      - PublicSubnetARouteTableAssociation
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-nat-gateway'
+
+
+Outputs:
+  VpcId:
+    Description: ID of the networking lab VPC
+    Value: !Ref LabVPC
+    Export:
+      Name: !Sub '${EnvironmentName}-VPCId'
+
+  # Public Subnet Exports
+  PublicSubnetAId:
+    Description: ID of public subnet A
+    Value: !Ref PublicSubnetA
+    Export:
+      Name: !Sub '${EnvironmentName}-PublicSubnetAId'
+
+  PublicSubnetBId:
+    Description: ID of public subnet B
+    Value: !Ref PublicSubnetB
+    Export:
+      Name: !Sub '${EnvironmentName}-PublicSubnetBId'
+
+  # Private Subnet Exports
+  PrivateSubnetAId:
+    Description: ID of private subnet A
+    Value: !Ref PrivateSubnetA
+    Export:
+      Name: !Sub '${EnvironmentName}-PrivateSubnetAId'
+
+  PrivateSubnetBId:
+    Description: ID of private subnet B
+    Value: !Ref PrivateSubnetB
+    Export:
+      Name: !Sub '${EnvironmentName}-PrivateSubnetBId'
+  
+  InternetGatewayId:
+    Description: ID of the Internet Gateway
+    Value: !Ref LabInternetGateway
+  
+  NatGatewayId:
+    Condition: CreateNatGateway
+    Description: ID of the NAT Gateway
+    Value: !Ref NatGateway
+
+  NatGatewayPublicIp:
+    Condition: CreateNatGateway
+    Description: Public IP address of the NAT Gateway
+    Value: !GetAtt NatGatewayEIP.PublicIp
+  
+  PublicRouteTableId:
+    Description: ID of the public route table
+    Value: !Ref PublicRouteTable
+
+  PrivateRouteTableId:
+    Description: ID of the private route table
+    Value: !Ref PrivateRouteTable
