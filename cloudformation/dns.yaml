@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Route 53 DNS records for the AWS Networking Lab
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: networking-lab
+    Description: Name used to identify project resources
+  
+  DomainName:
+    Type: String
+    Description: Registered domain name (e.g. example.com)
+  
+  HostedZoneId:
+    Type: String
+    Description: ID of the existing Route 53 public hosted zone
+
+
+Resources:
+  RootDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::ImportValue: !Sub '${EnvironmentName}-ALBDNSName'
+        HostedZoneId:
+          Fn::ImportValue: !Sub '${EnvironmentName}-ALBHostedZoneId'
+        EvaluateTargetHealth: true
+
+  WWWDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'www.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::ImportValue: !Sub '${EnvironmentName}-ALBDNSName'
+        HostedZoneId:
+          Fn::ImportValue: !Sub '${EnvironmentName}-ALBHostedZoneId'
+        EvaluateTargetHealth: true
+
+
+Outputs:
+  RootDomain:
+    Description: Root domain pointing to the ALB
+    Value: !Ref DomainName
+  
+  WWWDomain:
+    Description: WWW subdomain pointing to the ALB
+    Value: !Sub 'www.${DomainName}'

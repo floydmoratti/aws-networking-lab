@@ -1,59 +1,99 @@
-PROFILE = aws-dev
-REGION = us-east-1
+CONFIG_FILE := config.env
 
-.PHONY: login validate deploy status delete list-stacks outputs ssm
+ifneq (,$(wildcard $(CONFIG_FILE)))
+include $(CONFIG_FILE)
+export
+endif
+
+AWS_PROFILE ?= aws-dev
+AWS_REGION ?= us-east-1
+
+.PHONY: login validate status delete list-stacks outputs ssm deploy-compute deploy-dns deploy-network deploy-security
 
 login:
-	aws sso login --profile $(PROFILE)
+	aws sso login --profile $(AWS_PROFILE)
 
 verify:
-	aws sts get-caller-identity --profile $(PROFILE)
+	aws sts get-caller-identity --profile $(AWS_PROFILE)
 
 validate:
+	@test -n "$(STACK)" || (echo "Error: STACK is missing"; exit 1)
 	aws cloudformation validate-template \
 		--template-body file://cloudformation/$(STACK).yaml \
-		--profile $(PROFILE) \
-		--region $(REGION) \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
 		--no-cli-pager
 
-deploy:
-	aws cloudformation deploy \
-		--template-file cloudformation/$(STACK).yaml \
-		--stack-name networking-lab-$(STACK) \
-		--capabilities CAPABILITY_NAMED_IAM \
-		--profile $(PROFILE) \
-		--region $(REGION) \
-		--parameter-overrides EnableNatGateway=$(NAT)
-
 status:
+	@test -n "$(STACK)" || (echo "Error: STACK is missing"; exit 1)
 	aws cloudformation describe-stacks \
 		--stack-name networking-lab-$(STACK) \
-		--profile $(PROFILE) \
-		--region $(REGION) \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
         --query "Stacks[0].StackStatus" \
         --output text
 
 delete:
+	@test -n "$(STACK)" || (echo "Error: STACK is missing"; exit 1)
 	aws cloudformation delete-stack \
 		--stack-name networking-lab-$(STACK) \
-		--profile $(PROFILE) \
-		--region $(REGION)
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
 
 list-stacks:
 	aws cloudformation list-stacks \
-		--profile $(PROFILE) \
-		--region $(REGION)
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
 
 outputs:
+	@test -n "$(STACK)" || (echo "Error: STACK is missing"; exit 1)
 	aws cloudformation describe-stacks \
 		--stack-name networking-lab-$(STACK) \
-		--profile $(PROFILE) \
-		--region $(REGION) \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
         --query "Stacks[0].Outputs" \
         --output table
 
 ssm:
+	@test -n "$(SSM_TARGET)" || (echo "Error: SSM_TARGET is missing"; exit 1)
 	aws ssm start-session \
-		--target $(TARGET) \
-		--profile $(PROFILE) \
-		--region $(REGION)
+		--target $(SSM_TARGET) \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
+
+
+deploy-compute:
+	@test -n "$(CERTIFICATE_ARN)" || (echo "Error: CERTIFICATE_ARN is missing"; exit 1)
+	aws cloudformation deploy \
+		--template-file cloudformation/compute.yaml \
+		--stack-name networking-lab-compute \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--parameter-overrides CertificateArn=$(CERTIFICATE_ARN)
+
+deploy-dns:
+	@test -n "$(DOMAIN_NAME)" || (echo "Error: DOMAIN_NAME is missing"; exit 1)
+	@test -n "$(HOSTED_ZONE_ID)" || (echo "Error: HOSTED_ZONE_ID is missing"; exit 1)
+	aws cloudformation deploy \
+		--template-file cloudformation/dns.yaml \
+		--stack-name networking-lab-dns \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--parameter-overrides DomainName=$(DOMAIN_NAME) HostedZoneId=$(HOSTED_ZONE_ID)
+
+deploy-network:
+	aws cloudformation deploy \
+		--template-file cloudformation/network.yaml \
+		--stack-name networking-lab-network \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--parameter-overrides EnableNatGateway=$(ENABLE_NAT)
+
+deploy-security:
+	aws cloudformation deploy \
+		--template-file cloudformation/security.yaml \
+		--stack-name networking-lab-security \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)

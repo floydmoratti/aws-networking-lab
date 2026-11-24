@@ -1,3 +1,6 @@
+# Local configuration
+config.env
+
 # Terraform
 .terraform/
 *.tfstate
@@ -7,6 +10,7 @@
 # AWS credentials
 .aws/
 *.pem
+
 
 # macOS
 .DS_Store
