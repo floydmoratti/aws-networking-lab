@@ -80,8 +80,8 @@ Resources:
       Scheme: internet-facing
       IpAddressType: ipv4
       Subnets:
-        - Fn::ImportValue: !Sub '${EnvironmentName)-PublicSubnetAId'
-        - Fn::ImportValue: !Sub '${EnvironmentName)-PublicSubnetBId'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PublicSubnetAId'
+        - Fn::ImportValue: !Sub '${EnvironmentName}-PublicSubnetBId'
       SecurityGroups:
         - Fn::ImportValue: !Sub '${EnvironmentName}-ALBSecurityGroupId'
       Tags:
