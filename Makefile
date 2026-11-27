@@ -31,19 +31,22 @@ status:
 		--profile $(AWS_PROFILE) \
 		--region $(AWS_REGION) \
         --query "Stacks[0].StackStatus" \
-        --output text
+        --output text \
+		--no-cli-pager
 
 delete:
 	@test -n "$(STACK)" || (echo "Error: STACK is missing"; exit 1)
 	aws cloudformation delete-stack \
 		--stack-name networking-lab-$(STACK) \
 		--profile $(AWS_PROFILE) \
-		--region $(AWS_REGION)
+		--region $(AWS_REGION) \
+		--no-cli-pager
 
 list-stacks:
 	aws cloudformation list-stacks \
 		--profile $(AWS_PROFILE) \
-		--region $(AWS_REGION)
+		--region $(AWS_REGION) \
+		--no-cli-pager
 
 outputs:
 	@test -n "$(STACK)" || (echo "Error: STACK is missing"; exit 1)
@@ -52,15 +55,35 @@ outputs:
 		--profile $(AWS_PROFILE) \
 		--region $(AWS_REGION) \
         --query "Stacks[0].Outputs" \
-        --output table
+        --output table \
+		--no-cli-pager
 
 ssm:
 	@test -n "$(SSM_TARGET)" || (echo "Error: SSM_TARGET is missing"; exit 1)
 	aws ssm start-session \
 		--target $(SSM_TARGET) \
 		--profile $(AWS_PROFILE) \
-		--region $(AWS_REGION)
+		--region $(AWS_REGION) \
+		--no-cli-pager
 
+
+deploy-network:
+	aws cloudformation deploy \
+		--template-file cloudformation/network.yaml \
+		--stack-name networking-lab-network \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--parameter-overrides EnableNatGateway=$(ENABLE_NAT) \
+		--no-cli-pager
+
+deploy-security:
+	aws cloudformation deploy \
+		--template-file cloudformation/security.yaml \
+		--stack-name networking-lab-security \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--no-cli-pager
 
 deploy-compute:
 	@test -n "$(CERTIFICATE_ARN)" || (echo "Error: CERTIFICATE_ARN is missing"; exit 1)
@@ -70,7 +93,8 @@ deploy-compute:
 		--capabilities CAPABILITY_NAMED_IAM \
 		--profile $(AWS_PROFILE) \
 		--region $(AWS_REGION) \
-		--parameter-overrides CertificateArn=$(CERTIFICATE_ARN)
+		--parameter-overrides CertificateArn=$(CERTIFICATE_ARN) \
+		--no-cli-pager
 
 deploy-dns:
 	@test -n "$(DOMAIN_NAME)" || (echo "Error: DOMAIN_NAME is missing"; exit 1)
@@ -81,19 +105,5 @@ deploy-dns:
 		--capabilities CAPABILITY_NAMED_IAM \
 		--profile $(AWS_PROFILE) \
 		--region $(AWS_REGION) \
-		--parameter-overrides DomainName=$(DOMAIN_NAME) HostedZoneId=$(HOSTED_ZONE_ID)
-
-deploy-network:
-	aws cloudformation deploy \
-		--template-file cloudformation/network.yaml \
-		--stack-name networking-lab-network \
-		--profile $(AWS_PROFILE) \
-		--region $(AWS_REGION) \
-		--parameter-overrides EnableNatGateway=$(ENABLE_NAT)
-
-deploy-security:
-	aws cloudformation deploy \
-		--template-file cloudformation/security.yaml \
-		--stack-name networking-lab-security \
-		--profile $(AWS_PROFILE) \
-		--region $(AWS_REGION)
+		--parameter-overrides DomainName=$(DOMAIN_NAME) HostedZoneId=$(HOSTED_ZONE_ID) \
+		--no-cli-pager
