@@ -8,7 +8,8 @@ endif
 AWS_PROFILE ?= aws-dev
 AWS_REGION ?= us-east-1
 
-.PHONY: login validate status delete list-stacks outputs ssm deploy-compute deploy-dns deploy-network deploy-security
+.PHONY: login validate status delete delete-all list-stacks outputs ssm deploy-compute deploy-dns deploy-network deploy-security \
+scenario scenario-list scenarios
 
 login:
 	aws sso login --profile $(AWS_PROFILE)
@@ -107,3 +108,61 @@ deploy-dns:
 		--region $(AWS_REGION) \
 		--parameter-overrides DomainName=$(DOMAIN_NAME) HostedZoneId=$(HOSTED_ZONE_ID) \
 		--no-cli-pager
+
+delete-all:
+	@echo "Deleting AWS Networking Lab stacks..."
+	@echo ""
+
+	aws cloudformation delete-stack \
+		--stack-name networking-lab-dns \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--no-cli-pager
+
+	aws cloudformation wait stack-delete-complete \
+		--stack-name networking-lab-dns \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
+
+	aws cloudformation delete-stack \
+		--stack-name networking-lab-compute \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--no-cli-pager
+
+	aws cloudformation wait stack-delete-complete \
+		--stack-name networking-lab-compute \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
+
+	aws cloudformation delete-stack \
+		--stack-name networking-lab-security \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--no-cli-pager
+
+	aws cloudformation wait stack-delete-complete \
+		--stack-name networking-lab-security \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
+
+	aws cloudformation delete-stack \
+		--stack-name networking-lab-network \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION) \
+		--no-cli-pager
+
+	aws cloudformation wait stack-delete-complete \
+		--stack-name networking-lab-network \
+		--profile $(AWS_PROFILE) \
+		--region $(AWS_REGION)
+
+	@echo ""
+	@echo "All AWS Networking Lab stacks deleted successfully."
+
+# Troubleshooting scenarios
+scenario:
+	@bash scripts/scenario.sh $(or $(SCENARIO),random)
+
+scenario-list scenarios:
+	@bash scripts/scenario.sh list

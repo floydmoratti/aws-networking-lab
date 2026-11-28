@@ -1,0 +1,11 @@
+# ID|PROBLEM|PROBLEM_REPORT
+01|The default route to the Internet Gateway has been removed from the public route table.|Our website has stopped loading. Customers are unable to access it from their browsers.
+02|The default route to the NAT Gateway has been removed from the private route table.|The latest software updates aren't downloading. The update process keeps timing out when connecting to external repositories.
+03|PrivateSubnetA has been disassociated with its route table.|We can no longer connect to the application server to perform routine maintenance. This was working previously.
+04|The NAT Gateway has been deleted.|The application has stopped communicating with external services. Several automated tasks are failing.
+05|Inbound HTTP and HTTPS rules have been removed from the ALB security group.|We're getting connection timeouts whenever we try to visit the website. The issue affects everyone.
+06|Inbound HTTP access has been removed from the web server security group.|Our website is returning HTTP 503 errors. This started unexpectedly, and all users seem to be affected.
+07|The web server security group references an incorrect source security group.|The website is currently unavailable. We haven't made any changes to the application itself.
+08|The AmazonSSMManagedInstanceCore policy has been detached from the EC2 IAM role.|We're unable to access the server through our usual remote management method. We receive an error when attempting to start a session.
+09|The Apache web server service has been stopped.|We're getting an error when accessing the website. The service was working normally earlier today.
+10|Apache has been configured to listen on port 8080 instead of port 80.|The website has become unavailable following a recent maintenance window. Visitors are unable to load the application.
